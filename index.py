@@ -1,73 +1,60 @@
-import os
+import pandas as pd
+import numpy as np
+import yfinance as yf
+import matplotlib.pyplot as plt
 
-# Function to print the game board
-def print_board(board):
-    os.system('cls' if os.name == 'nt' else 'clear')
-    for row in board:
-        print(" | ".join(row))
-        print("-" * 5)
+# Step 1: Fetch stock data
+def fetch_stock_data(ticker, start_date, end_date):
+    """
+    Fetch historical stock data from Yahoo Finance.
+    """
+    stock_data = yf.download(ticker, start=start_date, end=end_date)
+    return stock_data
 
-# Function to check for a winner
-def check_winner(board):
-    # Check rows and columns
-    for i in range(3):
-        if board[i][0] == board[i][1] == board[i][2] != " ":
-            return board[i][0]
-        if board[0][i] == board[1][i] == board[2][i] != " ":
-            return board[0][i]
+# Example: Fetching stock data for Apple (AAPL)
+ticker = "AAPL"
+start_date = "2020-01-01"
+end_date = "2023-01-01"
 
-    # Check diagonals
-    if board[0][0] == board[1][1] == board[2][2] != " ":
-        return board[0][0]
-    if board[0][2] == board[1][1] == board[2][0] != " ":
-        return board[0][2]
+data = fetch_stock_data(ticker, start_date, end_date)
 
-    return None
+# Step 2: Calculate moving averages
+data['50-Day MA'] = data['Close'].rolling(window=50).mean()
+data['200-Day MA'] = data['Close'].rolling(window=200).mean()
 
-# Function to check if the board is full
-def is_full(board):
-    return all(cell != " " for row in board for cell in row)
+# Step 3: Calculate daily returns
+data['Daily Return (%)'] = data['Close'].pct_change() * 100
 
-# Main function to run the game
-def main():
-    # Initialize the board
-    board = [[" " for _ in range(3)] for _ in range(3)]
-    players = ["X", "O"]
-    turn = 0
+# Step 4: Calculate volatility (standard deviation of daily returns)
+data['Volatility'] = data['Daily Return (%)'].rolling(window=30).std()
 
-    while True:
-        print_board(board)
-        current_player = players[turn % 2]
-        print(f"Player {current_player}'s turn")
+# Step 5: Plot the data
+plt.figure(figsize=(14, 7))
 
-        # Get player input
-        while True:
-            try:
-                row, col = map(int, input("Enter row and column (1-3, space-separated): ").split())
-                row, col = row - 1, col - 1  # Adjust for 0-based indexing
-                if 0 <= row < 3 and 0 <= col < 3 and board[row][col] == " ":
-                    board[row][col] = current_player
-                    break
-                else:
-                    print("Invalid move! Cell is either out of bounds or already occupied. Try again.")
-            except ValueError:
-                print("Invalid input! Please enter two numbers separated by a space.")
+# Plot Closing Price
+plt.plot(data['Close'], label='Closing Price', color='blue', alpha=0.7)
+# Plot Moving Averages
+plt.plot(data['50-Day MA'], label='50-Day MA', color='orange', linestyle='--')
+plt.plot(data['200-Day MA'], label='200-Day MA', color='green', linestyle='--')
 
-        # Check for a winner
-        winner = check_winner(board)
-        if winner:
-            print_board(board)
-            print(f"Player {winner} wins!")
-            break
+# Add labels and title
+plt.title(f'{ticker} Stock Price Analysis')
+plt.xlabel('Date')
+plt.ylabel('Price (USD)')
+plt.legend()
+plt.grid()
+plt.show()
 
-        # Check for a tie
-        if is_full(board):
-            print_board(board)
-            print("It's a tie!")
-            break
+# Step 6: Plot Daily Returns
+plt.figure(figsize=(14, 7))
+plt.plot(data['Daily Return (%)'], label='Daily Return (%)', color='purple')
+plt.axhline(0, color='red', linestyle='--', alpha=0.6)
+plt.title(f'{ticker} Daily Returns')
+plt.xlabel('Date')
+plt.ylabel('Daily Return (%)')
+plt.legend()
+plt.grid()
+plt.show()
 
-        # Switch turn
-        turn += 1
-
-if __name__ == "__main__":
-    main()
+# Display the last 10 rows of the data
+print(data.tail(10))
